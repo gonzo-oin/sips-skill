@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sips Skill"
+  short_description: "End-to-end macOS image workflows with sips"
+  default_prompt: "Use $sips-skill to inspect, transform, and convert this image set in batch with sips only."
