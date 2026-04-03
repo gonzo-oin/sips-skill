@@ -1,102 +1,178 @@
 ---
 name: sips-skill
-description: "Use macOS sips for end-to-end image workflows: inspect and edit image properties, resize/crop/pad/rotate/flip, convert formats (including HEIC/HEIF-family targets where supported), manage metadata and color profiles (ICC), and run JavaScript image scripts. Trigger for any macOS command-line image task that should rely entirely on sips."
+description: "Use macOS sips for full command-line image workflows: format conversion (including HEIC/HEIF-family where supported), resize/crop/pad/rotate/flip, metadata and color profile operations, and batch processing. Trigger this skill for any macOS image manipulation request that should rely entirely on sips."
 ---
 
 # Sips Skill
 
-Use `sips` as the primary macOS image CLI for both one-off and batch workflows.
+Use this skill when image work must be done on macOS with `sips` only.
+
+## Trigger
+
+Use this skill when users ask to:
+- convert image formats (`png`/`jpeg`/`gif`/`heic`/etc.)
+- resize or crop images
+- batch-process a folder of images
+- optimize output size/quality for web or mobile
+- rotate, flip, pad, or normalize image outputs
+- inspect or modify metadata/properties
+- apply ICC profile operations
+
+## When Not to Use This Skill
+
+Do not use this skill for:
+- vector graphics editing (SVG authoring, illustration workflows)
+- complex creative retouching/compositing
+- video processing or transcoding
+- non-macOS environments without `sips`
+
+## Overview
+
+`sips` is Apple’s built-in image processing CLI. This skill provides:
+- direct `sips` command patterns for one-off tasks
+- safe batch wrappers for repeatable jobs
+- HEIC-first workflows without external dependencies
+- guidance for host-specific format support (`sips --formats`)
+
+Core command pattern:
+
+```bash
+sips [operations] input-file --out output-file
+```
 
 ## Quick Start
 
+### Resize (keep aspect ratio)
+
 ```bash
-# List readable/writable formats on this machine
-./scripts/sips_tool.sh formats
+sips --resampleHeightWidthMax 1600 input.jpg --out resized.jpg
+```
 
-# Read core metadata
-./scripts/sips_tool.sh info --key format --key pixelWidth --key pixelHeight image.png
+### Convert format (JPEG -> HEIC)
 
-# Generic batch operation: convert to HEIC and set quality
+```bash
+sips -s format heic -s formatOptions 80 input.jpeg --out output.heic
+```
+
+### Crop to fixed size
+
+```bash
+sips --cropToHeightWidth 1200 1200 input.png --out cropped.png
+```
+
+### Batch resize with helper script
+
+```bash
+./scripts/sips_tool.sh apply \
+  --out /tmp/resized \
+  --args "--resampleHeightWidthMax 1920" \
+  ./images
+```
+
+## Common Use Cases
+
+### 1. Format Conversion
+
+```bash
+# PNG -> JPEG
+sips -s format jpeg -s formatOptions 80 in.png --out out.jpg
+
+# JPEG -> PNG
+sips -s format png -s formatOptions best in.jpg --out out.png
+
+# JPEG -> HEIC
+sips -s format heic -s formatOptions 80 in.jpg --out out.heic
+```
+
+### 2. Resize Workflows
+
+```bash
+# Max edge resize (safe default)
+sips --resampleHeightWidthMax 1920 in.jpg --out out.jpg
+
+# Exact dimensions (aspect ratio may change)
+sips --resampleHeightWidth 1080 1080 in.jpg --out out.jpg
+
+# Width-only resize
+sips --resampleWidth 800 in.jpg --out out.jpg
+```
+
+### 3. Crop, Pad, Rotate, Flip
+
+```bash
+# Center-like crop with explicit size
+sips --cropToHeightWidth 1000 1000 in.jpg --out cropped.jpg
+
+# Crop with offset
+sips --cropToHeightWidth 1000 1000 --cropOffset 80 40 in.jpg --out cropped-offset.jpg
+
+# Pad to canvas
+sips --padToHeightWidth 1200 1200 --padColor FFFFFF in.png --out padded.png
+
+# Rotate and flip
+sips --rotate 90 in.jpg --out rotated.jpg
+sips --flip horizontal in.jpg --out flipped.jpg
+```
+
+### 4. Quality and Web Optimization
+
+```bash
+# JPEG quality tuning
+sips -s format jpeg -s formatOptions 72 in.png --out web.jpg
+
+# Optimize color for sharing
+sips --optimizeColorForSharing in.jpg --out web-optimized.jpg
+```
+
+### 5. Metadata and Image Info
+
+```bash
+# Query key properties
+sips -g format -g pixelWidth -g pixelHeight in.jpg
+
+# One-line output for scripts
+sips --oneLine -g format -g pixelWidth -g pixelHeight in.jpg
+
+# Set and delete metadata
+sips -s description "ready-for-web" in.png --out tagged.png
+sips -d description tagged.png --out clean.png
+```
+
+### 6. Profile and Color Management
+
+```bash
+# Extract embedded ICC profile
+sips --extractProfile extracted.icc in.jpg
+
+# Embed profile
+sips --embedProfile /System/Library/ColorSync/Profiles/sRGB\ Profile.icc in.jpg --out profiled.jpg
+
+# Match to profile with rendering intent
+sips --matchToWithIntent /System/Library/ColorSync/Profiles/sRGB\ Profile.icc perceptual in.jpg --out matched.jpg
+```
+
+## Batch Scripts
+
+### `scripts/sips_tool.sh` (generic)
+
+Use for almost any batch job; pass raw `sips` tokens with `--arg` / `--args`.
+
+```bash
+# Convert a folder to HEIC
 ./scripts/sips_tool.sh apply \
   --out /tmp/heic \
   --arg -s --arg format --arg heic \
   --arg -s --arg formatOptions --arg 80 \
   ./images
-```
 
-## Capability Map
-
-Based on `man sips`, the skill covers these capability families:
-
-1. Image query and properties.
-- `--getProperty`, `--setProperty`, `--deleteProperty`
-- format, dpi, copyright, description, artist, etc.
-
-2. Geometric transforms.
-- `--resampleHeightWidth`, `--resampleHeightWidthMax`, `--resampleWidth`, `--resampleHeight`
-- `--cropToHeightWidth`, `--cropOffset`, `--padToHeightWidth`, `--padColor`
-- `--rotate`, `--flip`
-
-3. Format conversion.
-- `-s format <fmt>` with optional `-s formatOptions <value>`
-- include HEIC workflows when write support is available on host macOS
-
-4. Color and ICC profile workflows.
-- `--embedProfile`, `--embedProfileIfNone`, `--matchTo`, `--matchToWithIntent`
-- `--extractProfile`, `--deleteColorManagementProperties`
-
-5. Profile-level operations.
-- `--verify`, `--repair`, `--extractTag`, `--loadTag`, `--copyTag`, `--deleteTag`
-
-6. JavaScript image scripting.
-- `--js <file>` with sips JavaScript runtime for generated/modified outputs
-
-## Workflow
-
-1. Discover support on current host.
-- Start with `sips --formats` because read/write support can vary by macOS version.
-
-2. Choose operation family.
-- Query/metadata, transform, conversion, color/profile, or JS.
-
-3. Choose execution mode.
-- Single command with raw `sips`.
-- Batch automation with `scripts/sips_tool.sh apply`.
-- Dedicated HEIC conversion with `scripts/convert_to_heic.sh`.
-
-4. Validate output.
-- dimensions, format, metadata, and visual quality.
-- if conversion target is unsupported, retry with a writable format shown by `sips --formats`.
-
-## Batch Scripts
-
-### Generic Batch Wrapper (`scripts/sips_tool.sh`)
-
-Use this for almost every batch use case. It accepts arbitrary `sips` tokens.
-
-```bash
-# Resize longest edge to 1920
-./scripts/sips_tool.sh apply \
-  --out /tmp/resized \
-  --args "--resampleHeightWidthMax 1920" \
-  ./images
-
-# Crop to 1200x1200 then set crop offset
-./scripts/sips_tool.sh apply \
-  --out /tmp/cropped \
-  --args "--cropToHeightWidth 1200 1200 --cropOffset 100 100" \
-  ./images
-
-# Strip selected metadata keys
+# Remove selected metadata keys in batch
 ./scripts/sips_tool.sh apply \
   --out /tmp/clean \
-  --args "-d profile -d description -d copyright -d artist" \
+  --args "-d description -d copyright -d artist" \
   ./images
 ```
 
-### HEIC Conversion (`scripts/convert_to_heic.sh`)
-
-Use this when the explicit goal is HEIC output and possible size reduction.
+### `scripts/convert_to_heic.sh` (HEIC-focused)
 
 ```bash
 ./scripts/convert_to_heic.sh \
@@ -107,51 +183,33 @@ Use this when the explicit goal is HEIC output and possible size reduction.
   ./photos
 ```
 
-## HEIC and HEIF Notes
+## HEIC / HEIF Notes
 
-- `HEIC` is commonly writable in modern macOS `sips` builds.
-- `HEIF` container support can differ by version/build; confirm with `sips --formats`.
-- This skill intentionally relies only on `sips` (no ImageMagick dependency).
-
-## Core Command Patterns
+- `heic` is typically writable on modern macOS.
+- `heif` support may be read-only depending on host build.
+- Always check actual capabilities on the current machine:
 
 ```bash
-# Resize with aspect ratio preservation
-sips --resampleHeightWidthMax 1600 input.jpg --out output.jpg
-
-# Exact resize (can change aspect ratio)
-sips --resampleHeightWidth 1080 1080 input.jpg --out output.jpg
-
-# Rotate and flip
-sips --rotate 90 input.png --out output.png
-sips --flip horizontal input.png --out output.png
-
-# Convert to HEIC
-sips -s format heic -s formatOptions 80 input.jpg --out output.heic
-
-# Embed ICC profile only if none exists
-sips --embedProfileIfNone /System/Library/ColorSync/Profiles/sRGB\ Profile.icc input.jpg --out output.jpg
-
-# Query format and dimensions
-sips -g format -g pixelWidth -g pixelHeight input.jpg
+sips --formats
 ```
 
-## Validation Checklist
+## Safety Checklist
+
+- preserve originals by default (`--out` directory)
+- test one file before batch operations
+- validate output format/dimensions/size after transforms
+- for automation, prefer `--dry-run` before large runs
+
+## Validation Commands
 
 ```bash
-# Size
 ls -lh before.jpg after.heic
-
-# Dimensions + format
 sips -g format -g pixelWidth -g pixelHeight after.heic
-
-# Optional one-line output for scripts
-sips --oneLine -g format -g pixelWidth -g pixelHeight after.heic
 ```
 
 ## Reference
 
-Load `references/sips-reference.md` when you need:
-- exhaustive mapping of `man sips` capability groups
-- advanced examples (profile tags, rendering intents, JS mode)
-- troubleshooting for format write failures and metadata quirks
+Load `references/sips-reference.md` for:
+- full capability mapping from `man sips`
+- advanced profile/JS examples
+- troubleshooting and host limitations
