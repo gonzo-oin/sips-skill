@@ -1,6 +1,6 @@
 ---
 name: sips-skill
-description: Use macOS sips for end-to-end image workflows: inspect and edit image properties, resize/crop/pad/rotate/flip, convert formats (including HEIC/HEIF-family targets where supported), manage metadata and color profiles (ICC), and run JavaScript image scripts. Trigger for any macOS command-line image task that should rely entirely on sips.
+description: "Use macOS sips for end-to-end image workflows: inspect and edit image properties, resize/crop/pad/rotate/flip, convert formats (including HEIC/HEIF-family targets where supported), manage metadata and color profiles (ICC), and run JavaScript image scripts. Trigger for any macOS command-line image task that should rely entirely on sips."
 ---
 
 # Sips Skill
